@@ -1,36 +1,27 @@
 'use strict';
 
 var util = require('util'),
-    http = require('http');
+    net = require('net');
 
 var SensorLib = require('../../index'),
     Sensor = SensorLib.Sensor,
     logger = Sensor.getLogger();
 
-
 //constants
-var BARUN_PORT = 6000;
-var ag = new http.Agent({maxSockets: 1});
+var BARUN_PORT = 6000,
+  BODY_SEP = '\n\n';
+
+//func decl
+var finClient, initClient;
 
 function BarunSensor(sensorInfo, options) {
   Sensor.call(this, sensorInfo, options);
-
-  this.options = {
-    port: BARUN_PORT,
-    path: '/',
-    method: 'GET',
-    agent: ag
-    //headers: {
-      //'Connection': 'keep-alive'
-    //}
-  };
 
   if (sensorInfo.model) {
     this.model = sensorInfo.model;
   }
   if (sensorInfo.device) {
     this.ipAddr = sensorInfo.device.address;
-    this.options.hostname = this.ipAddr;
   }
 
   if (!this.ipAddr) {
@@ -38,6 +29,8 @@ function BarunSensor(sensorInfo, options) {
     //FIXME: throw error
     return;
   }
+
+  initClient(this);
 
   logger.debug('BarunSensor', sensorInfo);
 }
@@ -58,41 +51,85 @@ BarunSensor.properties = {
 util.inherits(BarunSensor, Sensor);
 
 BarunSensor.prototype._get = function () {
-  var self = this, 
-  rtn = {status: 'error', id : self.id}; 
+  var self = this; 
+  var rtn = {status: 'error', id : self.id}; 
 
-  var req = http.get(self.options, function (res) {
-    res.on('data',function (msg) {
-      var v;
-      try { v = JSON.parse(msg); } catch (e) {}
-      if (v && v.sensors && v.sensors[0]) {
-        rtn = {status: 'ok', id : self.id, result: {}};
-        rtn.result[v.sensors[0].type] = v.sensors[0].value;
-        logger.info('[BarunSensor] _get', self.ipAddr, rtn);
-      } else {
-        rtn.message = 'unknown val:' + v && JSON.stringify(v);
-        logger.error('[BarunSensor] _get', self.ipAddr, rtn);
-      }
-      self.emit('data', rtn);
-    });
-  });
-  req.on('error', function (e) {
-    rtn.message = 'get error:' + e.toString();
-    logger.error('[BarunSensor] _get', self.ipAddr, rtn);
+  if (self.client) {
+    self.client.write(new Buffer('GET / HTTP/1.1')); 
+  } else {
+   // FIXME: not to be here
+    rtn.message = 'no client connection';
     self.emit('data', rtn);
-  }).setTimeout(BarunSensor.properties.recommendedInterval / 2, function () {
-    rtn.message = 'get timeout';
-    logger.error('[BarunSensor] _get', self.ipAddr, rtn);
-    self.emit('data', rtn);
-  });
-
-  logger.debug('request', req);
-
+    logger.fatal('[BarunSensor] no connection');
+  }
   return;
 };
 
 BarunSensor.prototype._clear = function () {
   logger.warn('[BarunSensor] _clear', this.ipAddr);
+  finClient();
+  return;
+};
+
+finClient = function finClient(self) {
+  if (self.client) {
+    self.client.destroy();
+    self.client = null;
+    logger.warn('[BarunSensor] finClient', self.ipAddr);
+  }
+};
+
+initClient = function initClient(self) {
+
+  finClient(self);
+
+  self.client = net.connect(BARUN_PORT, self.ipAddr, function (err) {
+    var rtn = {status: 'error', id : self.id}; 
+    if (err) {
+      logger.error('[BarunSensor] connect err', self.ipAddr, err);
+      finClient(self);
+      rtn.message = 'connection error';
+      self.emit('data', rtn);
+    }
+  });
+
+  self.client.on('data', function (buf) {
+    var rtn = {status: 'error', id : self.id}; 
+    var msg = buf.toString(),
+        v, bodyStart;
+    bodyStart = msg.indexOf(BODY_SEP) + BODY_SEP.length;
+
+    try { v = JSON.parse(msg.substr(bodyStart)); } catch (e) {}
+    if (v && v.sensors && v.sensors[0]) {
+      rtn = {status: 'ok', id : self.id, result: {}};
+      rtn.result[v.sensors[0].type] = v.sensors[0].value;
+      logger.info('[BarunSensor] _get', self.ipAddr, rtn);
+    } else {
+      rtn.message = 'unknown val:' + (v && JSON.stringify(v));
+      logger.error('[BarunSensor] _get', self.ipAddr, rtn);
+    }
+    self.emit('data', rtn);
+  });
+
+  self.client.on('error', function (e) {
+    var rtn = {status: 'error', id : self.id}; 
+    rtn.message = 'get error:' + e.toString();
+    logger.error('[BarunSensor] _get', self.ipAddr, rtn);
+    self.emit('data', rtn);
+  });
+  self.client.on('close', function () {
+    logger.error('[BarunSensor] _get close', self.ipAddrtn);
+    initClient(self);
+  });
+  // FIXME: timeout must be enhanced.
+  self.client.setTimeout(BarunSensor.properties.recommendedInterval * 1.5, function () {
+    var rtn = {status: 'error', id : self.id}; 
+    rtn.message = 'get timeout';
+    logger.error('[BarunSensor] _get', self.ipAddr, rtn);
+    self.client.destroy();
+    self.emit('data', rtn);
+  });
+
   return;
 };
 
