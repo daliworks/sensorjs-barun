@@ -10,15 +10,27 @@ var SensorLib = require('../../index'),
 
 //constants
 var BARUN_PORT = 6000;
+var ag = new http.Agent({maxSockets: 1});
 
 function BarunSensor(sensorInfo, options) {
   Sensor.call(this, sensorInfo, options);
+
+  this.options = {
+    port: BARUN_PORT,
+    path: '/',
+    method: 'GET',
+    agent: ag
+    //headers: {
+      //'Connection': 'keep-alive'
+    //}
+  };
 
   if (sensorInfo.model) {
     this.model = sensorInfo.model;
   }
   if (sensorInfo.device) {
     this.ipAddr = sensorInfo.device.address;
+    this.options.hostname = this.ipAddr;
   }
 
   if (!this.ipAddr) {
@@ -49,7 +61,7 @@ BarunSensor.prototype._get = function () {
   var self = this, 
   rtn = {status: 'error', id : self.id}; 
 
-  http.get('http://' + self.ipAddr + ':' + BARUN_PORT, function (res) {
+  var req = http.get(self.options, function (res) {
     res.on('data',function (msg) {
       var v;
       try { v = JSON.parse(msg); } catch (e) {}
@@ -63,7 +75,8 @@ BarunSensor.prototype._get = function () {
       }
       self.emit('data', rtn);
     });
-  }).on('error', function (e) {
+  });
+  req.on('error', function (e) {
     rtn.message = 'get error:' + e.toString();
     logger.error('[BarunSensor] _get', self.ipAddr, rtn);
     self.emit('data', rtn);
@@ -72,6 +85,8 @@ BarunSensor.prototype._get = function () {
     logger.error('[BarunSensor] _get', self.ipAddr, rtn);
     self.emit('data', rtn);
   });
+
+  logger.debug('request', req);
 
   return;
 };
