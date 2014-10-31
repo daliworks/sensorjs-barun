@@ -47,7 +47,7 @@ BarunSensor.properties = {
   recommendedInterval: 10000,
   maxInstances: 1,
   idTemplate: '{model}-{address}',
-  models: ['CC3200'],
+  models: ['CC3200S'],
   category: 'sensor'
 };
 
@@ -121,7 +121,7 @@ BarunSensor.prototype._get = function () {
 
   self.client.write(new Buffer(REQUEST_STR));
 
-  logger.error('[BarunSensor] _get', self.ipAddr, rtn);
+  logger.debug('[BarunSensor] _get', self.ipAddr, rtn);
 
   return;
 };

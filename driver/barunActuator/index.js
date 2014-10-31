@@ -21,7 +21,7 @@ BarunActuator.properties = {
   addressable: true,
   maxInstances: 5,
   idTemplate: '{model}-{address}',
-  models: ['CC3200'],
+  models: ['CC3200A'],
   commands: ['on', 'off'],
   category: 'actuator'
 };
