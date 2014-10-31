@@ -1,14 +1,12 @@
 {
   "name": "sensorjs-barun",
   "description": "barun sensor networks and drivers for sensorjs",
-  "version": "0.0.1",
+  "version": "0.0.1-1",
   "author": {
     "name": "daliworks",
     "email": "dev@daliworks.net"
   },
   "dependencies": {
-    "async": "0.9",
-    "lodash": "2.4",
     "log4js": "0.6"
   },
   "repository": {
