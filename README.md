@@ -1,25 +1,25 @@
-# sensorjs-powerManager
+# sensorjs-barun
 
-Power Manager sensor networks and drivers for sensorjs
+Barun sensor networks and drivers for sensorjs
 
 [https://github.com/daliworks/sensorjs](https://github.com/daliworks/sensorjs)
 
 ## Installation
 
-    $ npm install sensorjs-powerManager
+    $ npm install sensorjs-barun
 
 ## Example
 ```js
 var connect = require('sensorjs'),
     sensorApp = connect.sensor,
-    powerManagerSensor = require('sensorjs-powerManager');
+    barun = require('sensorjs-barun');
 
-sensorApp.addSensorPackage(powerManagerSensor);
+sensorApp.addSensorPackage(barun);
 ```
 
 ## Contributor
 
-[https://github.com/daliworks/sensorjs-powerManager/graphs/contributors](https://github.com/daliworks/sensorjs-powerManager/graphs/contributors)
+[https://github.com/daliworks/sensorjs-barun/graphs/contributors](https://github.com/daliworks/sensorjs-barun/graphs/contributors)
 
 ## License 
 
