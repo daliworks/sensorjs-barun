@@ -1,7 +1,6 @@
 'use strict';
 
-var util = require('util'),
-    _ = require ('lodash');
+var util = require('util');
 
 var Network = require('../../index').Network;
 
