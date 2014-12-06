@@ -9,7 +9,8 @@ var SensorLib = require('../../index'),
 
 //constants
 var BARUN_PORT = 6000,
-  BODY_SEP = '\n\n';
+  BODY_SEP = '\n\n',
+  RECONNECT_INTERVAL = 60*1000;
 
 //func decl
 var finClient, initClient;
@@ -60,14 +61,19 @@ BarunSensor.prototype._get = function () {
    // FIXME: not to be here
     rtn.message = 'no client connection';
     self.emit('data', rtn);
-    logger.fatal('[BarunSensor] no connection');
+    logger.error('[BarunSensor] no connection');
   }
   return;
 };
 
 BarunSensor.prototype._clear = function () {
-  logger.warn('[BarunSensor] _clear', this.ipAddr);
-  finClient();
+  var self = this;
+  logger.warn('[BarunSensor] _clear', self.ipAddr);
+  finClient(self);
+  if (self._connTimer) { //clear reconnect timer
+    clearInterval(self._connTimer);
+    self._connTimer = null;
+  }
   return;
 };
 
@@ -83,6 +89,7 @@ initClient = function initClient(self) {
 
   finClient(self);
 
+  logger.warn('[BarunSensor] initClient', self.ipAddr);
   self.client = net.connect(BARUN_PORT, self.ipAddr, function (err) {
     var rtn = {status: 'error', id : self.id}; 
     if (err) {
@@ -115,20 +122,29 @@ initClient = function initClient(self) {
     var rtn = {status: 'error', id : self.id}; 
     rtn.message = 'get error:' + e.toString();
     logger.error('[BarunSensor] _get', self.ipAddr, rtn);
+    finClient(self);
     self.emit('data', rtn);
   });
   self.client.on('close', function () {
-    logger.error('[BarunSensor] _get close', self.ipAddrtn);
-    initClient(self);
+    logger.error('[BarunSensor] _get close', self.ipAddr);
+    finClient(self);
   });
   // FIXME: timeout must be enhanced.
   self.client.setTimeout(BarunSensor.properties.recommendedInterval * 1.5, function () {
     var rtn = {status: 'error', id : self.id}; 
     rtn.message = 'get timeout';
     logger.error('[BarunSensor] _get', self.ipAddr, rtn);
-    self.client.destroy();
+    finClient(self);
     self.emit('data', rtn);
   });
+  if (!self._connTimer) { // reconnect timer
+    self._connTimer = setInterval(function () {
+      if (!self.client) { // not finalized
+        logger.warn('[BarunSensor] reconnect', self.ipAddr);
+        initClient(self);
+      }
+    }, RECONNECT_INTERVAL);  
+  }
 
   return;
 };
